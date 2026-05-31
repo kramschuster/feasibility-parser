@@ -1,0 +1,36 @@
+name: Build Windows Executable
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pyinstaller openpyxl python-docx lxml
+
+      - name: Build .exe
+        run: >
+          pyinstaller
+          --onefile
+          --name parse_feasibility
+          --hidden-import lxml
+          --hidden-import lxml.etree
+          --hidden-import lxml._elementpath
+          parse_feasibility.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: parse_feasibility-windows
+          path: dist/parse_feasibility.exe
+          retention-days: 30

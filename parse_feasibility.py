@@ -20,6 +20,8 @@ import sys
 import os
 import re
 import argparse
+import shutil
+from datetime import datetime
 from docx import Document
 from docx.oxml.ns import qn
 import openpyxl
@@ -995,6 +997,18 @@ def add_to_tracker(data, tracker_path):
     wb = openpyxl.load_workbook(tracker_path)
     ws = wb["All Responses"]
 
+    # Check for duplicate: investigator name is in column A (data[0])
+    investigator = data[0]
+    if investigator:
+        for row in ws.iter_rows(min_row=3, values_only=True):
+            if row[0] and str(row[0]).strip().lower() == investigator.strip().lower():
+                return None  # duplicate — do not write
+
+    # Keep a timestamped backup of the original before writing
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = tracker_path.replace(".xlsx", f"_backup_{stamp}.xlsx")
+    shutil.copy2(tracker_path, backup_path)
+
     # Find the last data row (first empty row after row 2)
     last_row = 2
     for row in ws.iter_rows(min_row=3):
@@ -1101,6 +1115,11 @@ def process_file(docx_path, dry_run, progress_prefix=""):
         msg = f"Excel write error: {exc}"
         print(f"  ERROR: {msg}")
         return {"fname": fname, "status": "error", "message": msg}
+
+    if new_row is None:
+        msg = "Already exists in tracker — skipped (duplicate)."
+        print(f"  SKIPPED: {msg}")
+        return {"fname": fname, "status": "skipped", "message": msg}
 
     print(f"  ✓ Written to row {new_row} of '{os.path.basename(TRACKER_FILE)}'.")
     return {"fname": fname, "status": "ok", "message": f"row {new_row}"}
